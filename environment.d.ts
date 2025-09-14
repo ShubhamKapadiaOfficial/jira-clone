@@ -7,18 +7,13 @@ declare global {
       // app base url
       NEXT_PUBLIC_APP_BASE_URL: string;
 
-      // appwrite project and key
-      NEXT_PUBLIC_APPWRITE_ENDPOINT: string;
-      NEXT_PUBLIC_APPWRITE_PROJECT: string;
-      NEXT_PUBLIC_APPWRITE_IMAGES_BUCKET_ID: string;
-      NEXT_APPWRITE_KEY: string;
+      // supabase project and key
+      NEXT_PUBLIC_SUPABASE_URL: string;
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: string;
+      SUPABASE_SERVICE_ROLE_KEY: string;
 
-      // appwrite database ids
-      NEXT_PUBLIC_APPWRITE_DATABASE_ID: string;
-      NEXT_PUBLIC_APPWRITE_MEMBERS_ID: string;
-      NEXT_PUBLIC_APPWRITE_PROJECTS_ID: string;
-      NEXT_PUBLIC_APPWRITE_TASKS_ID: string;
-      NEXT_PUBLIC_APPWRITE_WORKSPACES_ID: string;
+      // supabase database tables (no longer needed as we'll use table names directly)
+      // NEXT_PUBLIC_SUPABASE_DATABASE_ID: string;
     }
   }
 }

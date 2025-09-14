@@ -1,18 +1,24 @@
-import { type Databases, Query } from 'node-appwrite';
+import { createServerClient } from '@supabase/ssr';
 
-import { DATABASE_ID, MEMBERS_ID } from '@/config/db';
+import { TABLES } from '@/config/supabase';
 
 interface GetMemberProps {
-  databases: Databases;
+  supabase: ReturnType<typeof createServerClient>;
   workspaceId: string;
   userId: string;
 }
 
-export const getMember = async ({ databases, workspaceId, userId }: GetMemberProps) => {
-  const members = await databases.listDocuments(DATABASE_ID, MEMBERS_ID, [
-    Query.equal('workspaceId', workspaceId),
-    Query.equal('userId', userId),
-  ]);
+export const getMember = async ({ supabase, workspaceId, userId }: GetMemberProps) => {
+  const { data: member, error } = await supabase
+    .from(TABLES.MEMBERS)
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId)
+    .single();
 
-  return members.documents[0];
+  if (error) {
+    return null;
+  }
+
+  return member;
 };

@@ -1,12 +1,11 @@
 import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
 import { deleteCookie, setCookie } from 'hono/cookie';
-import { ID } from 'node-appwrite';
 import { z } from 'zod';
 
 import { AUTH_COOKIE } from '@/features/auth/constants';
 import { signInFormSchema, signUpFormSchema } from '@/features/auth/schema';
-import { createAdminClient } from '@/lib/appwrite';
+import { createAdminClient } from '@/lib/supabase';
 import { sessionMiddleware } from '@/lib/session-middleware';
 
 const app = new Hono()
@@ -44,44 +43,65 @@ const app = new Hono()
   .post('/login', zValidator('json', signInFormSchema), async (ctx) => {
     const { email, password } = ctx.req.valid('json');
 
-    const { account } = await createAdminClient();
+    const supabase = await createAdminClient();
 
-    const session = await account.createEmailPasswordSession(email, password);
-
-    setCookie(ctx, AUTH_COOKIE, session.secret, {
-      path: '/',
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      maxAge: 60 * 60 * 24 * 30,
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
+
+    if (error) {
+      return ctx.json({ error: error.message }, 400);
+    }
+
+    if (data.session) {
+      setCookie(ctx, AUTH_COOKIE, data.session.access_token, {
+        path: '/',
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        maxAge: 60 * 60 * 24 * 30,
+      });
+    }
 
     return ctx.json({ success: true });
   })
   .post('/register', zValidator('json', signUpFormSchema), async (ctx) => {
     const { name, email, password } = ctx.req.valid('json');
 
-    const { account } = await createAdminClient();
+    const supabase = await createAdminClient();
 
-    await account.create(ID.unique(), email, password, name);
-
-    const session = await account.createEmailPasswordSession(email, password);
-
-    setCookie(ctx, AUTH_COOKIE, session.secret, {
-      path: '/',
-      httpOnly: true,
-      secure: true,
-      sameSite: 'strict',
-      maxAge: 60 * 60 * 24 * 30,
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: name,
+        },
+      },
     });
+
+    if (error) {
+      return ctx.json({ error: error.message }, 400);
+    }
+
+    if (data.session) {
+      setCookie(ctx, AUTH_COOKIE, data.session.access_token, {
+        path: '/',
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+        maxAge: 60 * 60 * 24 * 30,
+      });
+    }
 
     return ctx.json({ success: true });
   })
   .post('/logout', sessionMiddleware, async (ctx) => {
-    const account = ctx.get('account');
+    const supabase = ctx.get('supabase');
 
     deleteCookie(ctx, AUTH_COOKIE);
-    await account.deleteSession('current');
+    await supabase.auth.signOut();
 
     return ctx.json({ success: true });
   });

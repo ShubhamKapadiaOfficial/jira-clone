@@ -1,32 +1,36 @@
 import { getCookie } from 'hono/cookie';
 import { createMiddleware } from 'hono/factory';
-import {
-  Account,
-  type Account as AccountType,
-  Client,
-  Databases,
-  type Databases as DatabasesType,
-  type Models,
-  Storage,
-  Storage as StorageType,
-  type Users as UsersType,
-} from 'node-appwrite';
+import { createServerClient } from '@supabase/ssr';
+import type { User } from '@supabase/supabase-js';
 import 'server-only';
 
 import { AUTH_COOKIE } from '@/features/auth/constants';
 
 type AdditionalContext = {
   Variables: {
-    account: AccountType;
-    databases: DatabasesType;
-    storage: StorageType;
-    users: UsersType;
-    user: Models.User<Models.Preferences>;
+    supabase: ReturnType<typeof createServerClient>;
+    user: User;
   };
 };
 
 export const sessionMiddleware = createMiddleware<AdditionalContext>(async (ctx, next) => {
-  const client = new Client().setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!).setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT!);
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return getCookie(ctx, name);
+        },
+        set(name: string, value: string, options: any) {
+          // This is handled by the auth endpoints
+        },
+        remove(name: string, options: any) {
+          // This is handled by the logout endpoint
+        },
+      },
+    }
+  );
 
   const session = getCookie(ctx, AUTH_COOKIE);
 
@@ -34,17 +38,14 @@ export const sessionMiddleware = createMiddleware<AdditionalContext>(async (ctx,
     return ctx.json({ error: 'Unauthorized.' }, 401);
   }
 
-  client.setSession(session);
+  // Verify the session with Supabase
+  const { data: { user }, error } = await supabase.auth.getUser(session);
 
-  const account = new Account(client);
-  const databases = new Databases(client);
-  const storage = new Storage(client);
+  if (error || !user) {
+    return ctx.json({ error: 'Unauthorized.' }, 401);
+  }
 
-  const user = await account.get();
-
-  ctx.set('account', account);
-  ctx.set('databases', databases);
-  ctx.set('storage', storage);
+  ctx.set('supabase', supabase);
   ctx.set('user', user);
 
   await next();
